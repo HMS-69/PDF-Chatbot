@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
 import streamlit as st
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
@@ -45,6 +47,9 @@ def get_conversation_chain(vectorstore):
     return conversation_chain
 
 def handle_userinput(user_question):
+    if st.session_state.conversation is None:
+        st.warning("Please upload and process at least one PDF first.")
+        return
     response = st.session_state.conversation({'question':user_question})
     st.session_state.chat_history = response['chat_history']
     for i, message in enumerate(st.session_state.chat_history):
@@ -52,7 +57,7 @@ def handle_userinput(user_question):
             st.write(user_template.replace("{{MSG}}", message.content), unsafe_allow_html = True)
         else:
             st.write(bot_template.replace("{{MSG}}",message.content),unsafe_allow_html=True)
-        
+
 def main():
     load_dotenv()
     st.write(css,unsafe_allow_html=True)
@@ -62,13 +67,18 @@ def main():
         st.session_state.chat_history = None
     st.set_page_config(page_title='Chat with multiple PDFs',page_icon=':books:')
     st.header('Chat with multiple PDFs :books:')
-    user_question = st.text_input('Ask a question about your documents')
+    user_question = st.text_input(
+    'Ask a question about your documents'
+)
     if user_question:
         handle_userinput(user_question)    
     with st.sidebar:
         st.subheader('Your documents')
-        pdf_docs = st.file_uploader("Upload your PDFs here and click on 'Process'",accept_multiple_files=True)
+        pdf_docs = st.file_uploader("Upload your PDFs here and click on 'Process'",accept_multiple_files=True,type=['pdf'])
         if st.button('Process'):
+            if not pdf_docs:
+                st.warning("Please upload at least one PDF.")
+                return
             with st.spinner('Processing'):
                 # Get pdf text
                 raw_text = get_pdf_text(pdf_docs)
